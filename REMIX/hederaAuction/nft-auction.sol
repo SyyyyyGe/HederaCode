@@ -9,6 +9,13 @@ contract ClockAuction is ClockAuctionBase{
         nonFungibleContract = NFTEnumerable(_nftAddress);
     }
 
+    function showNFTOnAuction()
+    external
+    view
+    returns(uint256[] memory){
+        return nonFungibleContract.getUserTokens(address(this));
+    }
+
     function createAuction(uint256 _tokenId, uint256 _startingPrice, uint256 _endingPrice, uint256 _duration)
     public
     canBeStoredWith128Bits(_startingPrice)
@@ -26,7 +33,7 @@ contract ClockAuction is ClockAuctionBase{
         );
         _addAuction(_tokenId, auction);
     }
-
+    
     function bid(uint256 _tokenId)
     public
     payable{
@@ -80,5 +87,12 @@ contract ClockAuction is ClockAuctionBase{
         require(_isOnAuction(auction),
         "sunyao:getCurrentPrice _isOnAuction(auction)");
         return _currentPrice(auction);
+    }
+
+    function getContractAddress()
+    public
+    view
+    returns(address){
+        return address(this);
     }
 }

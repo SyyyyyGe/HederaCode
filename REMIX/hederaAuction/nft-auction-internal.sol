@@ -20,7 +20,7 @@ contract ClockAuctionBase{
 
     NFTEnumerable public nonFungibleContract;
     mapping(uint256 => Auction)tokenIdToAuction;
-
+    mapping(uint256 => address[])tokenIdToHistory;
     event AuctionCreated(uint256 tokenId, uint256 startingPrice, uint256 endingPrice, uint256 duration);
 
     event AuctionSuccessful(uint256 tokenId, uint256 totalPrice, address winner);
@@ -49,7 +49,7 @@ contract ClockAuctionBase{
     //托管NFT给这个合约，用来拍卖
     function _escrow(address _owner, uint256 _tokenId)
     internal{
-        nonFungibleContract.transferFrom(_owner, msg.sender, _tokenId);
+        nonFungibleContract.transferFrom(_owner, address(this), _tokenId);
     }
 
     //转账交易
@@ -66,7 +66,7 @@ contract ClockAuctionBase{
         "sunyao:_addAuction _auction.duration >= 1 minutes");
 
         tokenIdToAuction[_tokenId] = _auction;
-
+        tokenIdToHistory[_tokenId].push(msg.sender);
         emit AuctionCreated(
             uint256(_tokenId),
             uint256(_auction.startingPrice),
@@ -79,7 +79,7 @@ contract ClockAuctionBase{
     function _cancelAuction(uint256 _tokenId, address _seller)
     internal{
         _removeAuction(_tokenId);
-        _transferFrom(msg.sender, _seller, _tokenId);
+        _transferFrom(address(this), _seller, _tokenId);
         emit AuctionConcelled(_tokenId);
     }
 
@@ -101,6 +101,7 @@ contract ClockAuctionBase{
             uint256 sellerProceeds = price;
             seller.transfer(sellerProceeds);
         }
+        tokenIdToHistory[_tokenId].push(msg.sender);
         emit AuctionSuccessful(_tokenId, price, msg.sender);
         return price;
     }
