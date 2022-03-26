@@ -64,9 +64,10 @@ contract NFTEnumerable is NFT, ERC721Enumerable{
         return ownerToIds[_owner][_index];
     }
 
-    function mint(address _to, string memory _uri)
+    function mint(address _to, uint256 _tokenId, string memory _uri)
     external{
-        _mint(_to, _uri);
+        _mint(_to, _tokenId);
+        _setUri(_tokenId, _uri);
     }    
 
 
@@ -74,15 +75,6 @@ contract NFTEnumerable is NFT, ERC721Enumerable{
     external{
         _burn(_tokenId);
     }
-
-    function getContractAddress()
-    public
-    view
-    returns(address){
-        return address(this);
-    }
-
-
 
     function _transferFrom(address _from, address _to, uint256 _tokenId)
     internal 
