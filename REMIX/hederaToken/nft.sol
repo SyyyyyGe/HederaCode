@@ -17,9 +17,7 @@ contract NFT is ERC721,SupportedInterface,ERC721Metadata{
     //被授权者：被拥有者或者授权者 授权能够操控token权利的人，只能有一人
     //授权者：拥有者的同伙，在一定程度上等于拥有者，可以有多人
     using AddressUtils for address;
-    using Counters for Counters.Counter;
-
-    Counters.Counter internal tokenIdTracker;
+    
 
     //一组NFT的symbol
     string internal nft_name;
@@ -30,12 +28,9 @@ contract NFT is ERC721,SupportedInterface,ERC721Metadata{
     //一组NFT中，每一个NFT的URI
     mapping(uint256 => string)internal idToUri;
 
-    //一组NFT中，通过URI得到NFT的ID
-    mapping(string => uint256)internal uriToId;
-
     //通过tokenId找到Owner
     mapping(uint256 => address) internal idToOwner;
-    
+
     //通过tokenId找到approved addresss
     mapping(uint256 => address) internal idToApproval;
 
@@ -45,13 +40,12 @@ contract NFT is ERC721,SupportedInterface,ERC721Metadata{
     //查看owner有没有授权给operator
     mapping (address => mapping(address => bool)) internal ownerToOperators;
 
-    //bytes4(keccak256("onERC721Received(address,address,uint256,bytes)"))，用来验证合约是否接受token成功
     bytes4 internal constant CONTRACT_RECEIVE_SUCCESS_BYTE = 0x150b7a02;
     //确保授权人操作, 要求满足之一：拥有者， 授权者
     modifier canOperator(uint256 _tokenId){
         address owner = idToOwner[_tokenId];
         require(owner == msg.sender || ownerToOperators[owner][msg.sender],
-        "sunyao:canOperator no power to operate");
+            "sunyao:canOperator no power to operate");
         _;
     }
     //确保授权人交易, 要求满足之一：拥有者， 被授权者， 授权者
@@ -59,14 +53,14 @@ contract NFT is ERC721,SupportedInterface,ERC721Metadata{
         address owner = idToOwner[_tokenId];
         require(owner == msg.sender
         || ownerToOperators[owner][msg.sender]
-        || idToApproval[_tokenId] == msg.sender,
-        "sunyao:canTransfer no power to transfer");
+            || idToApproval[_tokenId] == msg.sender,
+            "sunyao:canTransfer no power to transfer");
         _;
     }
     //确保NFT可以被交易，要求：当前NFT已被开采
     modifier validNFT(uint256 _tokenId){
         require(idToOwner[_tokenId] != address(0),
-        "sunyao:validNFT invalid NFT");
+            "sunyao:validNFT invalid NFT");
         _;
     }
 
@@ -80,28 +74,28 @@ contract NFT is ERC721,SupportedInterface,ERC721Metadata{
 
     //获取name
     function name()
-    override 
-    external 
-    view 
+    override
+    external
+    view
     returns (string memory _name){
         _name = nft_name;
     }
 
     //获取symbol
     function symbol()
-    override 
-    external 
-    view 
+    override
+    external
+    view
     returns (string memory _symbol){
         _symbol = nft_symbol;
     }
 
     //获取一个token的URI，用于交互
     function tokenURI(uint256 _tokenId)
-    override 
-    external 
-    view 
-    validNFT(_tokenId) 
+    override
+    external
+    view
+    validNFT(_tokenId)
     returns (string memory) {
         return _tokenURI(_tokenId);
     }
@@ -109,62 +103,62 @@ contract NFT is ERC721,SupportedInterface,ERC721Metadata{
 
     //查询一个账号剩余tokens的数量
     function balanceOf(address _owner)
-    override 
-    external 
-    view 
+    override
+    external
+    view
     returns (uint256){
         return ownerToNFTokenCount[_owner];
     }
 
     //查询一个token的拥有者
     function ownerOf(uint256 _tokenId)
-    override 
-    external 
-    view 
-    validNFT(_tokenId) 
+    override
+    external
+    view
+    validNFT(_tokenId)
     returns (address){
         return idToOwner[_tokenId];
     }
 
     //安全转移，前提是这个转移必须是符合canTransfer和alidNFT的，与普通转移区别在于这个转移对于接受者是不是合约账户会有特殊判断
-    function safeTransferFrom(address _from, address _to, uint256 _tokenId, bytes calldata data) 
-    override 
-    public
-    payable 
-    virtual 
-    canTransfer(_tokenId) 
+    function safeTransferFrom(address _from, address _to, uint256 _tokenId, bytes calldata data)
+    override
+    external
+    payable
+    virtual
+    canTransfer(_tokenId)
     validNFT(_tokenId){
         _safeTransferFrom(_from, _to, _tokenId, data);
     }
 
     //安全转移，前提是这个转移必须是符合canTransfer和alidNFT的
     function safeTransferFrom(address _from, address _to, uint256 _tokenId)
-    override 
-    public
-    payable 
-    virtual 
-    canTransfer(_tokenId) 
+    override
+    external
+    payable
+    virtual
+    canTransfer(_tokenId)
     validNFT(_tokenId){
         _safeTransferFrom(_from, _to, _tokenId, "");
     }
 
-    //普通转移，前提是这个转移必须是符合canTransfer和alidNFT的
-    function transferFrom(address _from, address _to, uint256 _tokenId) 
-    override 
-    public
-    payable 
-    virtual 
-    canTransfer(_tokenId) 
+    //普通转移，前提是这个转移必须是符合canTransfer和validNFT的
+    function transferFrom(address _from, address _to, uint256 _tokenId)
+    override
+    external
+    payable
+    virtual
+    canTransfer(_tokenId)
     validNFT(_tokenId){
         _transferFrom(_from, _to, _tokenId);
     }
 
     //授权，拥有者和授权者可以进行操作，指定一个被授权者。 
     function approve(address _approved, uint256 _tokenId)
-    override 
-    external 
-    payable 
-    canOperator(_tokenId) 
+    override
+    external
+    payable
+    canOperator(_tokenId)
     validNFT(_tokenId){
         address owner =  idToOwner[_tokenId];
         idToApproval[_tokenId] = _approved;
@@ -173,7 +167,7 @@ contract NFT is ERC721,SupportedInterface,ERC721Metadata{
 
     //拥有者命名授权者
     function setApprovalForAll(address _operator, bool _approved)
-    override 
+    override
     external{
         ownerToOperators[msg.sender][_operator] = _approved;
         emit ApprovalForAll(msg.sender, _operator, _approved);
@@ -181,66 +175,59 @@ contract NFT is ERC721,SupportedInterface,ERC721Metadata{
 
     //查看一个硬币的被授权者
     function getApproved(uint256 _tokenId)
-    override 
-    external 
-    view 
-    validNFT(_tokenId) 
+    override
+    external
+    view
+    validNFT(_tokenId)
     returns (address) {
         return idToApproval[_tokenId];
     }
 
     function isApprovedForAll(address _owner, address _operator)
-    override 
-    external 
-    view 
+    override
+    external
+    view
     returns (bool) {
         return ownerToOperators[_owner][_operator];
     }
 
-    //通过uri得到一个id
-    function getIdByUri(string memory _uri)
-    public
-    view
-    returns(uint256){
-        return uriToId[_uri];
-    }
     //获取一个token的URI，用于继承
     function _tokenURI(uint256 _tokenId)
     internal
-    view 
+    view
     returns(string memory){
         return idToUri[_tokenId];
     }
 
     //创建NFT,通过uri创建
-    function _mint(address _to, string memory _uri)
+    function _mint(address _to, uint256 _tokenId)
     internal
     virtual {
         require(_to != address(0),
-        "sunyao: _mint to != address(0)");
-        require(getIdByUri(_uri) == 0,
-        "sunyao: _mint uriToId(_uri) == 0");
-        _preMint(_to, _uri);
-        tokenIdTracker.increment();
-        uint256 _tokenId = tokenIdTracker.current();
-        idToUri[_tokenId] = _uri;
-        uriToId[_uri] = _tokenId;
+            "sunyao: _mint to != address(0)");
+        require(idToOwner[_tokenId] == address(0),
+            "sunyao: idToOwner[_tokenId] == address(0)");
+        _preMint(_to, _tokenId);
         _addNFT(_to, _tokenId);
         _afterMint(_to, _tokenId);
         emit Transfer(address(0), _to, _tokenId);
     }
 
+    //设置uri
+    function _setUri(uint256 _tokenId, string memory _uri)
+    internal {
+        idToUri[_tokenId] = _uri;
+    }
+
     //销毁NFT
     function _burn(uint256 _tokenId)
     internal
-    virtual 
+    virtual
     validNFT(_tokenId){
         address owner = idToOwner[_tokenId];
         _preBurn(_tokenId);
         _removeNFT(_tokenId);
-        string memory _uri = idToUri[_tokenId];
         delete(idToUri[_tokenId]);
-        delete(uriToId[_uri]);
         _afterBurn(_tokenId);
         emit Transfer(owner, address(0), _tokenId);
     }
@@ -248,13 +235,13 @@ contract NFT is ERC721,SupportedInterface,ERC721Metadata{
 
     //交易
     function _transferFrom(address _from, address _to, uint256 _tokenId)
-    internal 
+    internal
     virtual{
         address owner = idToOwner[_tokenId];
         require(owner == _from,
-        "sunyao:transferForm owner != from");
+            "sunyao:transferForm owner != from");
         require(_to != address(0),
-        "sunyao:transferForm to == address");
+            "sunyao:transferForm to == address");
         _preTransferFrom(_from, _to, _tokenId, "");
         _removeNFT(_tokenId);
         _addNFT(_to, _tokenId);
@@ -268,18 +255,18 @@ contract NFT is ERC721,SupportedInterface,ERC721Metadata{
     virtual{
         address owner = idToOwner[_tokenId];
         require(owner == _from,
-        "sunyao:_safeTransferFrom owner == _from");
+            "sunyao:_safeTransferFrom owner == _from");
         require(_to != address(0),
-        "sunyao:_safeTransferFrom _to != address(0)");
+            "sunyao:_safeTransferFrom _to != address(0)");
         _preTransferFrom(_from, _to, _tokenId, data);
         _removeNFT(_tokenId);
         _addNFT(_to, _tokenId);
-        _afterTransferFrom(_from, _to, _tokenId, "");
+        _afterTransferFrom(_from, _to, _tokenId, data);
         emit Transfer(_from, _to, _tokenId);
         if(_to.isContract()){
             bytes4 result = ERC721TokenReceiver(_to).onERC721Received(msg.sender, _from, _tokenId, data);
             require(result == CONTRACT_RECEIVE_SUCCESS_BYTE,
-            "sunyao:_safeTransferFrom contract account cant receive the NFT");
+                "sunyao:_safeTransferFrom contract account cant receive the NFT");
         }
     }
 
@@ -299,10 +286,10 @@ contract NFT is ERC721,SupportedInterface,ERC721Metadata{
         delete idToOwner[_tokenId];
         delete idToApproval[_tokenId];
     }
-    
+
 
     //在mint前执行
-    function _preMint(address _to, string memory _uri)
+    function _preMint(address _to, uint256 _tokenId)
     internal
     virtual{}
 
