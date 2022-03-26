@@ -26,6 +26,13 @@ contract NFTEnumerable is NFT, ERC721Enumerable{
         supportedInterface[0x780e9d63] = true;
     }
 
+    function getUserTokens(address _owner)
+    public
+    view
+    returns(uint256[] memory){
+        return ownerToIds[_owner];
+    }
+
     //记录这个合约总的tokens
     function totalSupply()
     override
@@ -67,6 +74,15 @@ contract NFTEnumerable is NFT, ERC721Enumerable{
     external{
         _burn(_tokenId);
     }
+
+    function getContractAddress()
+    public
+    view
+    returns(address){
+        return address(this);
+    }
+
+
 
     function _transferFrom(address _from, address _to, uint256 _tokenId)
     internal 
