@@ -19,12 +19,26 @@ contract NFTAuctionInternal{
         uint8 offer;
     }
 
+    struct AuctionDetail{
+        //卖家
+        address seller;
+        //买家
+        address buyer;
+        //价格（单位wei）
+        uint256 price;
+    }
     //申明自己存储nft的类型
     NFTLast public nonFungibleContract;
 
+    //交易列表
     Auction[] auctions;
 
+    //存储交易历史
+    mapping(uint256 => AuctionDetail[])tokenIdToAuctionDetail;
+
+    //存储交易序列index
     mapping(uint256 => uint256)tokenIdToAuctionIndex;
+
     //通过tokenid得到交易
     mapping(uint256 => Auction)tokenIdToAuction;
 
@@ -103,7 +117,6 @@ contract NFTAuctionInternal{
         "sunyao:_addAuction _auction.duration >= 1 minutes");
 
         tokenIdToAuction[_tokenId] = _auction;
-        tokenIdToHistory[_tokenId].push(msg.sender);
         auctions.push(_auction);
         tokenIdToAuctionIndex[_tokenId] = auctions.length - 1;
         emit AuctionCreated(
@@ -142,6 +155,8 @@ contract NFTAuctionInternal{
             uint256 sellerProceeds = price;
             seller.transfer(sellerProceeds);
         }
+
+        tokenIdToAuctionDetail[_tokenId].push(AuctionDetail(seller, msg.sender, price));
         tokenIdToHistory[_tokenId].push(msg.sender);
         emit AuctionSuccessful(_tokenId, price, msg.sender);
         return price;
