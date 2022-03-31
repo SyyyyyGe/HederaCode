@@ -20,11 +20,20 @@ contract NFTAuction is NFTAuctionInternal{
         return auctions;
     }
 
+    //得到现在交易列表长度
     function getAuctionsLen()
     external
     view 
     returns(uint256){
         return auctions.length;
+    }
+    
+    //得到一个token的交易细节
+    function getAuctionDetail(uint256 _tokenId)
+    external
+    view
+    returns(AuctionDetail[] memory){
+        return tokenIdToAuctionDetail[_tokenId];
     }
     
     //创建交易
