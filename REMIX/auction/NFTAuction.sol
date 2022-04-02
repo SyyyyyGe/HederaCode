@@ -16,6 +16,7 @@ contract NFTAuction is NFTAuctionInternal{
     function showAllNFTOnAuction()
     external
     view
+    virtual
     returns(Auction[] memory){
         return auctions;
     }
@@ -24,6 +25,7 @@ contract NFTAuction is NFTAuctionInternal{
     function getAuctionsLen()
     external
     view 
+    virtual
     returns(uint256){
         return auctions.length;
     }
@@ -32,6 +34,7 @@ contract NFTAuction is NFTAuctionInternal{
     function getAuctionDetail(uint256 _tokenId)
     external
     view
+    virtual
     returns(AuctionDetail[] memory){
         return tokenIdToAuctionDetail[_tokenId];
     }
@@ -41,7 +44,8 @@ contract NFTAuction is NFTAuctionInternal{
     canBeStoredWith128Bits(_startingPrice)
     canBeStoredWith128Bits(_endingPrice)
     canBeStoredWith64Bits(_duration)
-    external{
+    external
+    virtual{
         require(_owns(msg.sender, _tokenId),
         "sunyao: createAuction _owns(msg.sender, _tokenId)");
         _createAuction(_tokenId, _startingPrice, _endingPrice, _duration, 100);
@@ -53,7 +57,8 @@ contract NFTAuction is NFTAuctionInternal{
     canBeStoredWith128Bits(_endingPrice)
     canBeStoredWith64Bits(_duration)
     onlyOffer(_offer)
-    external{
+    external
+    virtual{
         require(_owns(msg.sender, _tokenId),
         "sunyao: createAuction _owns(msg.sender, _tokenId)");
         _createAuction(_tokenId, _startingPrice, _endingPrice, _duration, _offer);
@@ -62,17 +67,30 @@ contract NFTAuction is NFTAuctionInternal{
     //竞拍
     function bid(uint256 _tokenId)
     public
+    virtual
     payable{
         _bid(_tokenId, msg.value);
         _transferFrom(address(this), msg.sender, _tokenId);
     }
 
+    function updateAuction(uint256 _tokenId, uint256 _startingPrice, uint256 _endingPrice, uint256 _duration, uint256 _offer)
+    canBeStoredWith128Bits(_startingPrice)
+    canBeStoredWith128Bits(_endingPrice)
+    canBeStoredWith64Bits(_duration)
+    onlyOffer(_offer)
+    external
+    virtual{
+        require(_isOnAuction(_tokenId), "_updateAuction:_isOnAuction(auction)");
+        require(tokenIdToAuction[_tokenId].seller == msg.sender, "_updateAuction:tokenIdToAuction[_tokenId].seller == msg.sender");
+        _updateAuction(_tokenId, _startingPrice, _endingPrice, _duration, _offer);
+    }
     //取消交易
     function cancelAuction(uint256 _tokenId)
-    public{
+    public
+    virtual{
         Auction storage auction = tokenIdToAuction[_tokenId];
 
-        require(_isOnAuction(auction),
+        require(_isOnAuction(_tokenId),
         "sunyao: cancelAuction _isOnAuction(auction)");
 
         address seller = auction.seller;
@@ -83,21 +101,21 @@ contract NFTAuction is NFTAuctionInternal{
 
     //通过tokenid获得一个交易
     function getAuction(uint256 _tokenId)
-        public
-        view
-        returns(Auction memory) {
+    public
+    virtual
+    returns(Auction memory) {
         Auction storage auction = tokenIdToAuction[_tokenId];
-        require(_isOnAuction(auction));
+        require(_isOnAuction(_tokenId));
         return auction;
     }
 
     //得到当前价格
     function getCurrentPrice(uint256 _tokenId)
-        public
-        view
-        returns (uint256){
+    public
+    virtual
+    returns (uint256){
         Auction storage auction = tokenIdToAuction[_tokenId];
-        require(_isOnAuction(auction),
+        require(_isOnAuction(_tokenId),
         "sunyao:getCurrentPrice _isOnAuction(auction)");
         return _currentPrice(auction);
     }

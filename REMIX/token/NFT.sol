@@ -68,9 +68,18 @@ contract NFT is ERC721,ERC165SupportedInterface,ERC721Metadata{
     constructor(string memory _name, string memory _symbol){
         nft_name = _name;
         nft_symbol = _symbol;
-        //接受erc721规范
-        supportedInterface[0x80ac58cd] = true;
-        supportedInterface[0x5b5e139f] = true;
+    }
+
+    function supportsInterface(bytes4 interfaceId) 
+    public 
+    pure
+    virtual 
+    override 
+    returns (bool) {
+        return
+            interfaceId == type(ERC721).interfaceId ||
+            interfaceId == type(ERC721Metadata).interfaceId ||
+            super.supportsInterface(interfaceId);
     }
 
     //获取name

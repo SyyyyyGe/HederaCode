@@ -31,19 +31,19 @@ contract NFTAuctionInternal{
     NFTLast public nonFungibleContract;
 
     //交易列表
-    Auction[] auctions;
+    Auction[] internal auctions;
 
     //存储交易历史
-    mapping(uint256 => AuctionDetail[])tokenIdToAuctionDetail;
+    mapping(uint256 => AuctionDetail[])internal tokenIdToAuctionDetail;
 
     //存储交易序列index
-    mapping(uint256 => uint256)tokenIdToAuctionIndex;
+    mapping(uint256 => uint256)internal tokenIdToAuctionIndex;
 
     //通过tokenid得到交易
-    mapping(uint256 => Auction)tokenIdToAuction;
+    mapping(uint256 => Auction)internal tokenIdToAuction;
 
     //通过tokenid得到交易历史的所有用户
-    mapping(uint256 => address[])tokenIdToHistory;
+    mapping(uint256 => address[])internal tokenIdToHistory;
 
     //创建交易的事件
     event AuctionCreated(uint256 tokenId, uint256 startingPrice, uint256 endingPrice, uint256 duration, uint256 offer);
@@ -110,6 +110,28 @@ contract NFTAuctionInternal{
         _addAuction(_tokenId, auction);
     }
 
+    function _updateAuction(uint256 _tokenId, uint256 _startingPrice, uint256 _endingPrice, uint256 _duration, uint256 _offer)
+    internal{
+        Auction memory auction = tokenIdToAuction[_tokenId];
+        uint256 auctionIndex = tokenIdToAuctionIndex[_tokenId];
+        if(auction.startingPrice != _startingPrice){
+            auctions[auctionIndex].startingPrice = uint128(_startingPrice);
+            tokenIdToAuction[_tokenId].startingPrice = uint128(_startingPrice);
+        }
+        if(auction.endingPrice != _endingPrice){
+            auctions[auctionIndex].endingPrice = uint128(_endingPrice);
+            tokenIdToAuction[_tokenId].endingPrice = uint128(_endingPrice);
+        }
+        if(auction.duration != _duration){
+            auctions[auctionIndex].duration = uint64(_duration);
+            tokenIdToAuction[_tokenId].duration = uint64(_duration);
+        }
+        if(auction.offer != _duration){
+            auctions[auctionIndex].offer = uint8(_offer);
+            tokenIdToAuction[_tokenId].offer = uint8(_offer);
+        }
+    }
+
     //增加拍卖
     function _addAuction(uint256 _tokenId, Auction memory _auction)
     internal{
@@ -141,7 +163,7 @@ contract NFTAuctionInternal{
     internal
     returns(uint256){
         Auction storage auction = tokenIdToAuction[_tokenId];
-        require(_isOnAuction(auction),
+        require(_isOnAuction(_tokenId),
         "sunyao:_bid _isOnAuction(auction)");
         uint256 price = _currentPrice(auction);
         require(_bidAmount > price,
@@ -156,7 +178,7 @@ contract NFTAuctionInternal{
             seller.transfer(sellerProceeds);
         }
 
-        tokenIdToAuctionDetail[_tokenId].push(AuctionDetail(seller, msg.sender, price));
+        tokenIdToAuctionDetail[_tokenId].push(AuctionDetail(seller, msg.sender, _bidAmount));
         tokenIdToHistory[_tokenId].push(msg.sender);
         emit AuctionSuccessful(_tokenId, price, msg.sender);
         return price;
@@ -174,12 +196,21 @@ contract NFTAuctionInternal{
     }
 
     //判断是不是在拍卖
-    function _isOnAuction(Auction storage _auction)
+    function _isOnAuction(uint256 _tokenId)
     internal
-    view
     returns(bool){
-        return (_auction.startedAt > 0);
+        Auction memory _auction = tokenIdToAuction[_tokenId];
+        uint256 secondsPassed = block.timestamp - _auction.startedAt;
+        uint256 _duration = _auction.duration;
+        if(secondsPassed > _duration || _auction.startedAt > 0)return true;
+        else{
+            if(secondsPassed > _duration){
+                _removeAuction(_tokenId);
+            }
+            return false;
+        }
     }
+    
 
     //得到当前价格,包含折扣
     function _currentPrice(Auction storage _auction)

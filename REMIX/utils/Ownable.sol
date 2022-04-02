@@ -11,7 +11,7 @@ contract Ownable{
     event OwnershipTransfer(address indexed _old, address indexed _new);
     modifier onlyOwner{
         require(msg.sender == owner,
-        "sunyao:onlyOwner msg.sender == owner");
+        "Ownable:onlyOwner msg.sender == owner");
 
         _;
     }

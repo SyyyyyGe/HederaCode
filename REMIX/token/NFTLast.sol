@@ -4,11 +4,11 @@ pragma solidity ^0.8.0;
 
 import "../interface/ERC721Enumerable.sol";
 import "./NFT.sol";
-import "./NFTFavor.sol";
 import "../utils/AddressUtils.sol";
+import "../utils/Ownable.sol";
+import "../utils/Pausable.sol";
 
-
-contract NFTLast is NFT, ERC721Enumerable, NFTFavor{
+contract NFTLast is NFT, ERC721Enumerable, Ownable, Pausable{
     using AddressUtils for address;
     //记录总的tokens
     uint256[] internal tokens;
@@ -24,45 +24,41 @@ contract NFTLast is NFT, ERC721Enumerable, NFTFavor{
 
     
 
-    constructor(string memory name, string memory symbol)NFT(name, symbol){
-        //ERC165接口
-        supportedInterface[0x780e9d63] = true;
-    }
-
-    //展示一个用户喜欢的nft
-    function showFavors(address _to)
-    external 
-    view 
-    returns(uint256[] memory){
-        require(_to != address(0),
-        "sunyao:_to != address(0)");
-        return ownerToFavors[_to];
-    }
-
-    function getOwnerFavorsLen(address _to)
-    external
-    view
-    returns(uint256){
-        return ownerToFavors[_to].length;
-    }
-    //增加自己喜欢
-    function addFavor(uint256 _tokenId)
-    validNFT(_tokenId)
-    external{
-        _addFavor(_tokenId);
-    }
-
-    //减少自己喜欢
-    function removeFavor(uint256 _tokenId)
-    validNFT(_tokenId)
-    external{
-        _removeFavor(_tokenId);
-    }
+    constructor(string memory name, string memory symbol)NFT(name, symbol){}
     
+    //实现接口
+    function supportsInterface(bytes4 interfaceId) 
+    public 
+    pure
+    virtual 
+    override 
+    returns (bool) {
+        return
+            interfaceId == type(ERC721Enumerable).interfaceId ||
+            super.supportsInterface(interfaceId);
+    }
+
+    //开发者可以暂停
+    function pause()
+    external
+    virtual
+    onlyOwner{
+        _pause();
+    }
+
+    //开发者可以取消暂停
+    function unpause()
+    external
+    virtual
+    onlyOwner{
+        _unpause();
+    }
+
     //得到用户nft
     function getUserTokens(address _owner)
     public
     view
+    virtual
     returns(uint256[] memory){
         return ownerToIds[_owner];
     }
@@ -71,7 +67,8 @@ contract NFTLast is NFT, ERC721Enumerable, NFTFavor{
     function totalSupply()
     override
     external 
-    view 
+    view
+    virtual 
     returns (uint256){
         return tokens.length;
     }
@@ -80,7 +77,8 @@ contract NFTLast is NFT, ERC721Enumerable, NFTFavor{
     function tokenByIndex(uint256 _index)
     override 
     external 
-    view 
+    view
+    virtual 
     returns (uint256){
         require(_index < tokens.length,
         "sunyao:tokenByIndex _index < tokens.length");
@@ -92,6 +90,7 @@ contract NFTLast is NFT, ERC721Enumerable, NFTFavor{
     override 
     external 
     view 
+    virtual
     returns (uint256){
         require(_index < ownerToIds[_owner].length,
         "sunyao:tokenOfOwnerByIndex _index < ownerToIds[owner].length");
@@ -99,14 +98,17 @@ contract NFTLast is NFT, ERC721Enumerable, NFTFavor{
     }
 
     function mint(address _to, uint256 _tokenId, string memory _uri)
-    external{
+    external
+    virtual
+    onlyOwner{
         _mint(_to, _tokenId);
         _setUri(_tokenId, _uri);
     }    
 
 
     function burn(uint256 _tokenId)
-    external{
+    external
+    virtual{
         _burn(_tokenId);
     }
 
@@ -210,4 +212,9 @@ contract NFTLast is NFT, ERC721Enumerable, NFTFavor{
         _deleteNFTEnumerable(_tokenId);
     }
 
+    function _preTransferFrom(address _from, address _to, uint256 _tokenId, bytes memory data)
+    override
+    internal
+    virtual
+    whenNotPaused{}
 }
