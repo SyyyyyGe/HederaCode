@@ -40,7 +40,6 @@ contract NFT is ERC721,ERC165SupportedInterface,ERC721Metadata{
     //查看owner有没有授权给operator
     mapping (address => mapping(address => bool)) internal ownerToOperators;
     
-
     bytes4 internal constant CONTRACT_RECEIVE_SUCCESS_BYTE = 0x150b7a02;
     //确保授权人操作, 要求满足之一：拥有者， 授权者
     modifier canOperator(uint256 _tokenId){

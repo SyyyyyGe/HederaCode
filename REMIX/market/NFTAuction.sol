@@ -3,19 +3,13 @@ pragma solidity ^0.8.0;
 
 import "./NFTAuctionInternal.sol";
 import "../utils/ReentrancyGuard.sol";
-
 contract NFTAuction is NFTAuctionInternal, ReentrancyGuard{
     
     //构造函数
     constructor(address _nftAddress){
         nonFungibleContract = NFTLast(_nftAddress);
     }
-    function showAccountBalance()
-    public
-    view
-    returns(uint256){
-        return address(this).balance;
-    }
+
     //展示一个人的竞拍的钱
     function showOnesBidding(address _target, uint256 _tokenId)
     public
@@ -25,7 +19,7 @@ contract NFTAuction is NFTAuctionInternal, ReentrancyGuard{
         return idToDeposits[_tokenId][_target];
     }
 
-    //展示所有在交易的nft
+    //展示所有的拍卖
     function showAllAuctions()
     public
     view
@@ -43,7 +37,7 @@ contract NFTAuction is NFTAuctionInternal, ReentrancyGuard{
         return auctions.length;
     }
     
-    //得到一个token的交易细节
+    //得到一个token的拍卖细节
     function getAuctionDetail(uint256 _tokenId)
     public
     view
@@ -52,10 +46,10 @@ contract NFTAuction is NFTAuctionInternal, ReentrancyGuard{
         return idToAuctionDetail[_tokenId];
     }
     
-    //创建拍卖
+    //创建拍卖（nft的owner，operator，proxy可以进行对该nft拍卖）
     function createAuction(uint256 _tokenId, uint256 _nowAmount, uint256 _duration)
     public
-    canTransfer(_tokenId)
+    canOperator(_tokenId)
     virtual{
         _createAuction(_tokenId, _nowAmount, _duration);
     }
@@ -67,11 +61,12 @@ contract NFTAuction is NFTAuctionInternal, ReentrancyGuard{
     virtual
     payable{
         Auction memory auction = idToAuction[_tokenId];
-        require(_isOnBidding(_tokenId), "bid: _isOnAuction(auction)");
+        require(_isOnBidding(auction), "bid: _isOnBidding(auction)");        
         uint256 price = auction.nowAmount;
-        uint256 bidAmount = idToDeposits[_tokenId][msg.sender] + msg.value;
+        uint256 value = idToDeposits[_tokenId][msg.sender];
+        uint256 bidAmount = value + msg.value;
         require(bidAmount > price, "bid: msg.value > price");
-        _bid(auction, _tokenId, bidAmount);
+        _bid(auction, _tokenId, bidAmount, (value == 0));
     }
 
     //取消拍卖
@@ -80,17 +75,16 @@ contract NFTAuction is NFTAuctionInternal, ReentrancyGuard{
     nonReentrant
     virtual{
         Auction memory auction = idToAuction[_tokenId];
-        if(_isOnBidding(_tokenId)){
+        require(auction.startedAt > 0, "cancelAuction: auction.startedAt > 0");
+        uint256 elapsedTime = block.timestamp - auction.startedAt;
+        if(elapsedTime <= auction.duration){
             address seller = auction.seller;
             require(seller == msg.sender || 
                 nonFungibleContract.isApprovedForAll(seller, msg.sender) || 
-                nonFungibleContract.getApproved(_tokenId) == msg.sender,
+                getProxy(msg.sender) == seller,
             "cancelAuction:canTransfer no power to transfer");
-            _cancelAuction(_tokenId);
-        }else{
-            require(_isOnAuction(_tokenId), "cancelAuction: _isOnAuction(auction)");
-            _cancelAuction(_tokenId);
         }
+        _cancelAuction(_tokenId, auction);
     }
 
     //通过tokenid获得一个拍卖
@@ -99,24 +93,16 @@ contract NFTAuction is NFTAuctionInternal, ReentrancyGuard{
     virtual
     returns(Auction memory) {
         Auction memory auction = idToAuction[_tokenId];
-        require(_isOnAuction(_tokenId), "getAuction: _isOnAuction(_tokenId)");
+        require(_isOnAuction(auction), "getAuction: _isOnAuction(_tokenId)");
         return auction;
     }
 
     //取钱
-    function withdraw(uint256 _tokenId)
+    function withdraw()
     public
     nonReentrant
     virtual{
-        Auction memory auction = idToAuction[_tokenId];
-        uint256 elapsedTime = block.timestamp - auction.startedAt;
-        if(auction.startedAt > 0 && elapsedTime > auction.duration){
-            _cancelAuction(_tokenId);
-        }
-        if(auction.startedAt > 0 && elapsedTime <= auction.duration){
-            require(msg.sender != auction.winner, "withdraw :msg.sender != auction.winner");
-        }
-        _withdraw(_tokenId);
+        _withdraw();
     }
 
 }

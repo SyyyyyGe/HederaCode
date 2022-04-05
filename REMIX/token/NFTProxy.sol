@@ -3,15 +3,18 @@ pragma solidity ^0.8.0;
 
 
 import "./NFTLast.sol";
+import "../utils/AddressProxy.sol";
 
-contract NFTProxy{
+
+contract NFTProxy is AddressProxy{
     NFTLast nonFungibleContract;
 
     //确保能够操作
     modifier canOperator(uint256 _tokenId){
         address owner = nonFungibleContract.ownerOf(_tokenId);
         require(owner == msg.sender || 
-                nonFungibleContract.isApprovedForAll(owner, msg.sender),
+                nonFungibleContract.isApprovedForAll(owner, msg.sender) || 
+                getProxy(owner) == msg.sender,
             "NFTProxy:canOperator no power to operate");
         _;
     }
@@ -20,7 +23,8 @@ contract NFTProxy{
         address owner = nonFungibleContract.ownerOf(_tokenId);
         require(owner == msg.sender || 
                 nonFungibleContract.isApprovedForAll(owner, msg.sender) || 
-                nonFungibleContract.getApproved(_tokenId) == msg.sender,
+                nonFungibleContract.getApproved(_tokenId) == msg.sender ||
+                getProxy(owner) == msg.sender,
             "NFTProxy:canTransfer no power to transfer");
         _;
     }

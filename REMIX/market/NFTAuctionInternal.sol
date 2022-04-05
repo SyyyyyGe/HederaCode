@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 
 import "../utils/SafeCast.sol";
 import "../token/NFTProxy.sol";
-
+import "../utils/AddressProxy.sol";
 abstract contract NFTAuctionInternal is NFTProxy{
 
     using SafeCast for uint256;
@@ -35,6 +35,11 @@ abstract contract NFTAuctionInternal is NFTProxy{
     //通过id和address得到一个用户在这个拍卖存了多少钱
     mapping(uint256 => mapping(address => uint256))idToDeposits;
 
+    //由于map不能序列化，所以需要用一个数组去存储所有竞拍的地址
+    mapping(uint256 => address[])idToDepositsList;
+
+    //由于存在用户可能无法完成收钱，所以可以暂时存储一下，当更改proxy后，可以进行取钱。
+    mapping(address => uint256)ownerToMoney;
     /*
         交易历史
     */
@@ -94,34 +99,49 @@ abstract contract NFTAuctionInternal is NFTProxy{
     //增加拍卖
     function _addAuction(uint256 _tokenId, Auction memory _auction)
     internal{
-        require(_auction.duration >= 1 minutes,
-        "_addAuction: _auction.duration >= 1 minutes");
+        require(_auction.duration >= 1 minutes, "_addAuction: _auction.duration >= 1 minutes");
         idToAuction[_tokenId] = _auction;
         auctions.push(_auction);
         idToAuctionIndex[_tokenId] = auctions.length - 1; 
     }
 
     //取消拍卖
-    function _cancelAuction(uint256 _tokenId)
+    function _cancelAuction(uint256 _tokenId, Auction memory _auction)
     internal{
-        Auction memory auction = idToAuction[_tokenId];
-        address _winner = auction.winner;
-        address _seller = auction.seller;
+        address _winner = _auction.winner;
+        address _seller = _auction.seller;
         _transferFrom(address(this), _winner, _tokenId);
+        idToAuctionDetail[_tokenId].push(AuctionDetail(_seller, _winner, idToDeposits[_tokenId][_winner]));
+         _sendMoney(_tokenId, _winner, _seller);
         _removeAuction(_tokenId);
-        uint256 value = idToDeposits[_tokenId][_winner];
-        idToDeposits[_tokenId][_winner] = 0;
-        (bool success, ) = _seller.call{value:value}("");
-        require(success, "cancelAuction lose");
-        idToAuctionDetail[_tokenId].push(AuctionDetail(_seller, _winner, value));
         emit AuctionConcelled(_tokenId);
     }
 
+    //结束拍卖，给钱
+    function _sendMoney(uint256 _tokenId, address _winner, address _seller)
+    internal{
+        uint256 value = idToDeposits[_tokenId][_winner];
+        idToDeposits[_tokenId][_winner] = 0;
+        (bool success, ) = _seller.call{value:value}("");
+        if(!success)ownerToMoney[_seller] += value;
+        address[] memory depositsList = idToDepositsList[_tokenId];
+        for(uint256 i = 0; i < depositsList.length; i++){
+            if(depositsList[i] == _winner)continue;
+            address _to = depositsList[i];
+            value = idToDeposits[_tokenId][_to];
+            idToDeposits[_tokenId][_to] = 0;
+            (success, ) = _to.call{value:value}("");
+            if(!success)ownerToMoney[_to] += value;
+        }
+        
+    }
+
     //竞拍
-    function _bid(Auction memory _auction, uint256 _tokenId, uint256 _bidAmount)
+    function _bid(Auction memory _auction, uint256 _tokenId, uint256 _bidAmount, bool isHave)
     internal{
         _updateAuction(_auction, _tokenId, payable(msg.sender), _bidAmount);
         idToDeposits[_tokenId][msg.sender] = _bidAmount;
+        if(!isHave)idToDepositsList[_tokenId].push(msg.sender);
     }
 
     //更新拍卖
@@ -143,16 +163,24 @@ abstract contract NFTAuctionInternal is NFTProxy{
         auctions.pop();
         delete idToAuctionIndex[_tokenId];
         delete idToAuction[_tokenId];
+        address[] memory depositsList = idToDepositsList[_tokenId];
+        for(uint256 i = 0; i < depositsList.length; i++){
+            delete idToDeposits[_tokenId][depositsList[i]];
+        }
+        delete idToDepositsList[_tokenId];
     }
 
     //取钱
-    function _withdraw(uint256 _tokenId)
+    function _withdraw()
     internal
     returns(bool){
-        uint256 _value = idToDeposits[_tokenId][msg.sender];
+        uint256 _value = ownerToMoney[msg.sender];
         if(_value > 0){
-            idToDeposits[_tokenId][msg.sender] = 0;
+            ownerToMoney[msg.sender] = 0;
             (bool success, ) = msg.sender.call{value:_value}("");
+            if(!success && getProxy(msg.sender) != address(0)){
+                (success, ) = getProxy(msg.sender).call{value:_value}("");
+            }
             if(success)emit WithdrawSuccessful(msg.sender, _value);
             else emit WithdrawLoss(msg.sender, _value);
             return success;
@@ -161,20 +189,18 @@ abstract contract NFTAuctionInternal is NFTProxy{
     }
 
     //判断是不是在拍卖
-    function _isOnAuction(uint256 _tokenId)
+    function _isOnAuction(Auction memory _auction)
     internal
-    view
+    pure
     returns(bool){
-        Auction memory _auction = idToAuction[_tokenId];
         return _auction.startedAt > 0;
     }
 
     //判断是不是在拍卖
-    function _isOnBidding(uint256 _tokenId)
+    function _isOnBidding(Auction memory _auction)
     internal
     view
     returns(bool){
-        Auction memory _auction = idToAuction[_tokenId];
         uint256 elapsedTime = block.timestamp - _auction.startedAt;
         return _auction.startedAt > 0 && elapsedTime <= _auction.duration;
     }

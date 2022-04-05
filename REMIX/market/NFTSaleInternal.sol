@@ -134,7 +134,7 @@ contract NFTSaleInternal is NFTProxy{
         emit SaleSuccessful(_tokenId, msg.value, msg.sender);
     }
 
-    //直售结束
+    //结束直售
     function _removeSale(uint256 _tokenId)
     internal{
         uint256 targetSaleIndex = idToSaleIndex[_tokenId];
@@ -145,21 +145,19 @@ contract NFTSaleInternal is NFTProxy{
         delete idToSale[_tokenId];
     }
 
-    //判断是不是在直售
-    function _isOnSale(uint256 _tokenId)
+    //判断是不是在直售列表内（可能在直售，也可能已结过期，但是没删除）
+    function _isOnSale(Sale memory _sale)
     internal
-    view
+    pure
     returns(bool){
-        Sale memory _sale = idToSale[_tokenId];
         return _sale.startedAt > 0;
     }
 
-    //判断是不是在直售
-    function _isOnSelling(uint256 _tokenId)
+    //判断是不是没过期的直售
+    function _isOnSelling(Sale memory _sale)
     internal
     view
     returns(bool){
-        Sale memory _sale = idToSale[_tokenId];
         uint256 elapsedTime = block.timestamp - _sale.startedAt;
         return (_sale.startedAt > 0 && elapsedTime <= _sale.duration);
     }

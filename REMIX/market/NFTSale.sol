@@ -50,43 +50,45 @@ contract NFTSale is NFTSaleInternal, ReentrancyGuard{
     //创建直售
     function createSale(uint256 _tokenId, uint256 _startingPrice, uint256 _endingPrice, uint256 _duration, uint256 _discount)
     public
-    canTransfer(_tokenId)
+    canOperator(_tokenId)
     virtual{
         require(_discount <= 100, "createSale: _discount <= 100");
         _createSale(_tokenId, _startingPrice, _endingPrice, _duration, _discount);
     }
 
-     //购买
+     //msg.sender购买token
     function buy(uint256 _tokenId)
     public
     nonReentrant
     virtual
     payable{
         Sale memory sale = idToSale[_tokenId];
-        require(_isOnSelling(_tokenId),"buy: _isOnSelling(_tokenId)");
+        require(_isOnSelling(sale),"buy: _isOnSelling(_tokenId)");
         uint256 price = _currentPrice(sale);
         require(msg.value >= price,"buy: _buyAmount >= price");
         _buy(sale.seller, _tokenId);
         _transferFrom(address(this), msg.sender, _tokenId);
     }
 
-     //更新直售
+     //msgsender更新直售
     function updateSale(uint256 _tokenId, uint256 _startingPrice, uint256 _endingPrice, uint256 _duration, uint256 _discount)
     public
-    canTransfer(_tokenId)
+    canOperator(_tokenId)
     virtual{
+        Sale memory sale = idToSale[_tokenId];
         require(_discount <= 100, "updateSale:_discount <= 100");
-        require(_isOnSelling(_tokenId), "updateSale:_isOnSelling(_tokenId)");
+        require(_isOnSelling(sale), "updateSale:_isOnSelling(_tokenId)");
         _updateSale(_tokenId, _startingPrice, _endingPrice, _duration, _discount);
     }
 
     //取消直售
     function cancelSale(uint256 _tokenId)
     public
-    canTransfer(_tokenId)
+    canOperator(_tokenId)
+    nonReentrant
     virtual{
         Sale memory sale = idToSale[_tokenId];
-        require(_isOnSale(_tokenId), "cancelSale: _isOnSale(_tokenId)");
+        require(_isOnSale(sale), "cancelSale: _isOnSale(_tokenId)");
         address seller = sale.seller;
         _cancelSale(_tokenId, seller);
     }
@@ -97,7 +99,7 @@ contract NFTSale is NFTSaleInternal, ReentrancyGuard{
     virtual
     returns(Sale memory) {
         Sale memory sale = idToSale[_tokenId];
-        require(_isOnSale(_tokenId), "getSale: _isOnSale(_tokenId)");
+        require(_isOnSale(sale), "getSale: _isOnSale(_tokenId)");
         return sale;
     }
 
@@ -107,7 +109,7 @@ contract NFTSale is NFTSaleInternal, ReentrancyGuard{
     virtual
     returns (uint256){
         Sale memory sale = idToSale[_tokenId];
-        require(_isOnSelling(_tokenId), "getCurrentPrice: _isOnSale(sale)");
+        require(_isOnSelling(sale), "getCurrentPrice: _isOnSale(sale)");
         return _currentPrice(sale);
     }
 }
