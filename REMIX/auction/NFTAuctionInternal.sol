@@ -1,24 +1,43 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../token/NFTLast.sol";
-contract NFTAuctionInternal{
 
+import "../utils/SafeCast.sol";
+import "../token/NFTProxy.sol";
+
+abstract contract NFTAuctionInternal is NFTProxy{
+
+    using SafeCast for uint256;
+    /*
+        拍卖
+    */
     struct Auction{
-        //当前NFT拥有者
+        //售卖的人
         address payable seller;
-        //初始价格
-        uint128 startingPrice;
-        //结束价格
-        uint128 endingPrice;
-        //持续时间
+        //拍卖出最高价的人
+        address payable winner;
+        //目前拍卖价格
+        uint128 nowAmount;
+        //拍卖时间
         uint64 duration;
-        //开始时间
+        //拍卖开始时间
         uint64 startedAt;
-        //折扣
-        uint8 offer;
     }
+    //拍卖列表
+    Auction[] internal auctions;
 
+    //存储交易序列index
+    mapping(uint256 => uint256)internal idToAuctionIndex;
+
+    //通过tokenid得到交易
+    mapping(uint256 => Auction)internal idToAuction;
+
+    //通过id和address得到一个用户在这个拍卖存了多少钱
+    mapping(uint256 => mapping(address => uint256))idToDeposits;
+
+    /*
+        交易历史
+    */
     struct AuctionDetail{
         //卖家
         address seller;
@@ -27,227 +46,141 @@ contract NFTAuctionInternal{
         //价格（单位wei）
         uint256 price;
     }
-    //申明自己存储nft的类型
-    NFTLast public nonFungibleContract;
 
-    //交易列表
-    Auction[] internal auctions;
+    //交易历史
+    mapping(uint256 => AuctionDetail[])internal idToAuctionDetail;
 
-    //存储交易历史
-    mapping(uint256 => AuctionDetail[])internal tokenIdToAuctionDetail;
+    /*
+        事件
+    */
 
-    //存储交易序列index
-    mapping(uint256 => uint256)internal tokenIdToAuctionIndex;
+    //创建拍卖的事件
+    event AuctionCreated(uint256 tokenId, uint256 nowAmount, uint256 duration);
 
-    //通过tokenid得到交易
-    mapping(uint256 => Auction)internal tokenIdToAuction;
-
-    //通过tokenid得到交易历史的所有用户
-    mapping(uint256 => address[])internal tokenIdToHistory;
-
-    //创建交易的事件
-    event AuctionCreated(uint256 tokenId, uint256 startingPrice, uint256 endingPrice, uint256 duration, uint256 offer);
-
-    //交易成功的事件
+    //拍卖成功的事件
     event AuctionSuccessful(uint256 tokenId, uint256 totalPrice, address winner);
 
-    //交易取消的事件
+    //拍卖取消的事件
     event AuctionConcelled(uint256 tokenId);
 
-    //由于以太坊虚拟机存储费用的计算和内存有关，所以可以尽量减少内存消耗
-    //判断一个整数是不是小于64位
-    modifier canBeStoredWith64Bits(uint256 _value) {
-        require(_value <= 18446744073709551615,
-        "sunyao: this value need less than 64bits");
-        _;
-    }
+    //取钱成功的事件
+    event WithdrawSuccessful(address from, uint256 amount);
 
-    //判断一个整数是不是小于128位
-    modifier canBeStoredWith128Bits(uint256 _value) {
-        require(_value <= 340282366920938463463374607431768211455,
-        "sunyao: this value need less than 128bits");
-        _;
-    }
-
-    //判断一个优惠百分比是否小于100
-    modifier onlyOffer(uint256 _value){
-        require(_value <= 100,
-        "sunyao:Offer need to <= 100");
-        _;
-    }
-    //判断claimant是不是tokenid的拥有者
-    function _owns(address _claimant, uint256 _tokenId)
-    internal
-    view
-    returns(bool){
-        return (nonFungibleContract.ownerOf(_tokenId) == _claimant);
-    }
-
-    //托管NFT给这个合约，用来拍卖
-    function _escrow(address _owner, uint256 _tokenId)
-    internal{
-        nonFungibleContract.transferFrom(_owner, address(this), _tokenId);
-    }
-
-    //转账交易
-    function _transferFrom(address _from, address _to, uint256 _tokenId)
-    internal{
-        nonFungibleContract.transferFrom(_from, _to, _tokenId);
-    }
+    //取钱失败的事件
+    event WithdrawLoss(address from, uint256 amount);
     
-    //创建交易
-    function _createAuction(uint256 _tokenId, uint256 _startingPrice, uint256 _endingPrice, uint256 _duration, uint256 _offer)
+    
+    //创建拍卖
+    function _createAuction(uint256 _tokenId, uint256 _nowAmount, uint256 _duration)
     internal{
-        _escrow(msg.sender, _tokenId);
+        address owner = _getOwner(_tokenId);
+        _escrow(owner, _tokenId);
         Auction memory auction = Auction(
-            payable(msg.sender),
-            uint128(_startingPrice),
-            uint128(_endingPrice),
-            uint64(_duration),
-            uint64(block.timestamp),
-            uint8(_offer)
+            payable(owner),
+            payable(owner),
+            _nowAmount.toUint128(),
+            _duration.toUint64(),
+            block.timestamp.toUint64()
         );
         _addAuction(_tokenId, auction);
+         emit AuctionCreated(
+            uint256(_tokenId),
+            uint256(_nowAmount),
+            uint256(_duration)
+        );
     }
 
-    function _updateAuction(uint256 _tokenId, uint256 _startingPrice, uint256 _endingPrice, uint256 _duration, uint256 _offer)
-    internal{
-        Auction memory auction = tokenIdToAuction[_tokenId];
-        uint256 auctionIndex = tokenIdToAuctionIndex[_tokenId];
-        if(auction.startingPrice != _startingPrice){
-            auctions[auctionIndex].startingPrice = uint128(_startingPrice);
-            tokenIdToAuction[_tokenId].startingPrice = uint128(_startingPrice);
-        }
-        if(auction.endingPrice != _endingPrice){
-            auctions[auctionIndex].endingPrice = uint128(_endingPrice);
-            tokenIdToAuction[_tokenId].endingPrice = uint128(_endingPrice);
-        }
-        if(auction.duration != _duration){
-            auctions[auctionIndex].duration = uint64(_duration);
-            tokenIdToAuction[_tokenId].duration = uint64(_duration);
-        }
-        if(auction.offer != _duration){
-            auctions[auctionIndex].offer = uint8(_offer);
-            tokenIdToAuction[_tokenId].offer = uint8(_offer);
-        }
-    }
 
     //增加拍卖
     function _addAuction(uint256 _tokenId, Auction memory _auction)
     internal{
         require(_auction.duration >= 1 minutes,
-        "sunyao:_addAuction _auction.duration >= 1 minutes");
-
-        tokenIdToAuction[_tokenId] = _auction;
+        "_addAuction: _auction.duration >= 1 minutes");
+        idToAuction[_tokenId] = _auction;
         auctions.push(_auction);
-        tokenIdToAuctionIndex[_tokenId] = auctions.length - 1;
-        emit AuctionCreated(
-            uint256(_tokenId),
-            uint256(_auction.startingPrice),
-            uint256(_auction.endingPrice),
-            uint256(_auction.duration),
-            uint256(_auction.offer)
-        );
+        idToAuctionIndex[_tokenId] = auctions.length - 1; 
     }
 
     //取消拍卖
-    function _cancelAuction(uint256 _tokenId, address _seller)
+    function _cancelAuction(uint256 _tokenId)
     internal{
+        Auction memory auction = idToAuction[_tokenId];
+        address _winner = auction.winner;
+        address _seller = auction.seller;
+        _transferFrom(address(this), _winner, _tokenId);
         _removeAuction(_tokenId);
-        _transferFrom(address(this), _seller, _tokenId);
+        uint256 value = idToDeposits[_tokenId][_winner];
+        idToDeposits[_tokenId][_winner] = 0;
+        (bool success, ) = _seller.call{value:value}("");
+        require(success, "cancelAuction lose");
+        idToAuctionDetail[_tokenId].push(AuctionDetail(_seller, _winner, value));
         emit AuctionConcelled(_tokenId);
     }
 
     //竞拍
-    function _bid(uint256 _tokenId, uint256 _bidAmount)
-    internal
-    returns(uint256){
-        Auction storage auction = tokenIdToAuction[_tokenId];
-        require(_isOnAuction(_tokenId),
-        "sunyao:_bid _isOnAuction(auction)");
-        uint256 price = _currentPrice(auction);
-        require(_bidAmount > price,
-        "sunyao:_bid _bidAmount > price");
+    function _bid(Auction memory _auction, uint256 _tokenId, uint256 _bidAmount)
+    internal{
+        _updateAuction(_auction, _tokenId, payable(msg.sender), _bidAmount);
+        idToDeposits[_tokenId][msg.sender] = _bidAmount;
+    }
 
-        address payable seller = auction.seller;
-
-        _removeAuction(_tokenId);
-
-        if(price > 0){
-            uint256 sellerProceeds = price;
-            seller.transfer(sellerProceeds);
-        }
-
-        tokenIdToAuctionDetail[_tokenId].push(AuctionDetail(seller, msg.sender, _bidAmount));
-        tokenIdToHistory[_tokenId].push(msg.sender);
-        emit AuctionSuccessful(_tokenId, price, msg.sender);
-        return price;
+    //更新拍卖
+    function _updateAuction(Auction memory _auction, uint256 _tokenId, address payable _winner, uint256 _nowAmount)
+    internal{
+        _auction.winner = _winner;
+        _auction.nowAmount = _nowAmount.toUint128();
+        uint256 targetAuctionIndex = idToAuctionIndex[_tokenId];
+        auctions[targetAuctionIndex] = _auction;
+        idToAuction[_tokenId] = _auction;
     }
 
     //拍卖结束
     function _removeAuction(uint256 _tokenId)
     internal{
-        uint256 targetAuctionIndex = tokenIdToAuctionIndex[_tokenId];
+        uint256 targetAuctionIndex = idToAuctionIndex[_tokenId];
         uint256 lastAuctionIndex = auctions.length - 1;
         auctions[targetAuctionIndex] = auctions[lastAuctionIndex];
         auctions.pop();
-        delete tokenIdToAuctionIndex[_tokenId];
-        delete tokenIdToAuction[_tokenId];
+        delete idToAuctionIndex[_tokenId];
+        delete idToAuction[_tokenId];
+    }
+
+    //取钱
+    function _withdraw(uint256 _tokenId)
+    internal
+    returns(bool){
+        uint256 _value = idToDeposits[_tokenId][msg.sender];
+        if(_value > 0){
+            idToDeposits[_tokenId][msg.sender] = 0;
+            (bool success, ) = msg.sender.call{value:_value}("");
+            if(success)emit WithdrawSuccessful(msg.sender, _value);
+            else emit WithdrawLoss(msg.sender, _value);
+            return success;
+        }
+        return false;
     }
 
     //判断是不是在拍卖
     function _isOnAuction(uint256 _tokenId)
     internal
+    view
     returns(bool){
-        Auction memory _auction = tokenIdToAuction[_tokenId];
-        uint256 secondsPassed = block.timestamp - _auction.startedAt;
-        uint256 _duration = _auction.duration;
-        if(secondsPassed > _duration || _auction.startedAt > 0)return true;
-        else{
-            if(secondsPassed > _duration){
-                _removeAuction(_tokenId);
-            }
-            return false;
-        }
+        Auction memory _auction = idToAuction[_tokenId];
+        return _auction.startedAt > 0;
     }
-    
 
-    //得到当前价格,包含折扣
-    function _currentPrice(Auction storage _auction)
+    //判断是不是在拍卖
+    function _isOnBidding(uint256 _tokenId)
     internal
     view
-    returns(uint256){
-        uint256 secondsPassed = 0;
-
-        if(block.timestamp > _auction.startedAt){
-            secondsPassed = block.timestamp - _auction.startedAt;
-        }
-
-        return _computeCurrentPrice(
-            _auction.startingPrice,
-            _auction.endingPrice,
-            _auction.duration,
-            secondsPassed,
-            _auction.offer
-        );
-    }
-    //得到当前价格，并且乘上折扣
-    function _computeCurrentPrice(uint256 _startingPrice,uint256 _endingPrice,uint256 _duration,uint256 _secondsPassed, uint256 offer)
-    internal
-    pure
-    returns(uint256){
-        if (_secondsPassed >= _duration) {
-            return _endingPrice * offer / 100;
-        } else {
-            int256 totalPriceChange = int256(_endingPrice) - int256(_startingPrice);
-            int256 currentPriceChange = totalPriceChange * int256(_secondsPassed) / int256(_duration);
-            
-            int256 currentPrice = int256(_startingPrice) + currentPriceChange;
-            
-            return uint256(currentPrice) * offer / 100;
-        }
+    returns(bool){
+        Auction memory _auction = idToAuction[_tokenId];
+        uint256 elapsedTime = block.timestamp - _auction.startedAt;
+        return _auction.startedAt > 0 && elapsedTime <= _auction.duration;
     }
 
-    
+    receive() external payable{
+
+    }
     
 }
