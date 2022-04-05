@@ -84,7 +84,6 @@ contract NFTSale is NFTSaleInternal, ReentrancyGuard{
     function cancelSale(uint256 _tokenId)
     public
     canTransfer(_tokenId)
-    nonReentrant
     virtual{
         Sale memory sale = idToSale[_tokenId];
         require(_isOnSale(_tokenId), "cancelSale: _isOnSale(_tokenId)");
