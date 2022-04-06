@@ -87,6 +87,7 @@ contract NFTAuction is NFTAuctionInternal, ReentrancyGuard{
     //通过tokenid获得一个拍卖
     function getAuction(uint256 _tokenId)
     public
+    view
     virtual
     returns(Auction memory) {
         Auction memory auction = idToAuction[_tokenId];

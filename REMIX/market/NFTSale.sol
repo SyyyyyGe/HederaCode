@@ -96,6 +96,7 @@ contract NFTSale is NFTSaleInternal, ReentrancyGuard{
     //通过tokenid得到一个直售
     function getSale(uint256 _tokenId)
     public
+    view
     virtual
     returns(Sale memory) {
         Sale memory sale = idToSale[_tokenId];
@@ -106,6 +107,7 @@ contract NFTSale is NFTSaleInternal, ReentrancyGuard{
     //得到当前价格
     function getCurrentPrice(uint256 _tokenId)
     public
+    view
     virtual
     returns (uint256){
         Sale memory sale = idToSale[_tokenId];
