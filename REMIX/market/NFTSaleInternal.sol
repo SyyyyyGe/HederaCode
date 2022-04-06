@@ -11,6 +11,7 @@ contract NFTSaleInternal is NFTProxy{
         直售数据
     */
     struct Sale{
+        uint256 tokenId;
         //当前NFT拥有者
         address payable seller;
         //初始价格(若初始价格和结束价格不同，则为动态价格)
@@ -75,6 +76,7 @@ contract NFTSaleInternal is NFTProxy{
         address owner = _getOwner(_tokenId);
         _escrow(owner, _tokenId);
         Sale memory sale = Sale(
+            _tokenId, 
             payable(owner),
             _startingPrice.toUint128(),
             _endingPrice.toUint128(),

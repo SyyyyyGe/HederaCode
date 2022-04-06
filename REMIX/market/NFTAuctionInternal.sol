@@ -12,6 +12,7 @@ abstract contract NFTAuctionInternal is NFTProxy{
         拍卖
     */
     struct Auction{
+        uint256 tokenId;
         //售卖的人
         address payable seller;
         //拍卖出最高价的人
@@ -81,6 +82,7 @@ abstract contract NFTAuctionInternal is NFTProxy{
         address owner = _getOwner(_tokenId);
         _escrow(owner, _tokenId);
         Auction memory auction = Auction(
+            _tokenId,
             payable(owner),
             payable(owner),
             _nowAmount.toUint128(),
