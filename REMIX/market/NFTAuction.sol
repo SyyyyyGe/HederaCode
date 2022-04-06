@@ -79,10 +79,7 @@ contract NFTAuction is NFTAuctionInternal, ReentrancyGuard{
         uint256 elapsedTime = block.timestamp - auction.startedAt;
         if(elapsedTime <= auction.duration){
             address seller = auction.seller;
-            require(seller == msg.sender || 
-                nonFungibleContract.isApprovedForAll(seller, msg.sender) || 
-                getProxy(msg.sender) == seller,
-            "cancelAuction:canTransfer no power to transfer");
+            require(!_canOperator(seller), "cancelAuction: !_canOperator(seller)");
         }
         _cancelAuction(_tokenId, auction);
     }
