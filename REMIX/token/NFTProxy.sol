@@ -62,4 +62,23 @@ contract NFTProxy is AddressProxy{
     returns(address){
         return nonFungibleContract.ownerOf(_tokenId);
     }
+
+    function _canTransfer(address _seller, uint256 _tokenId)
+    internal 
+    view
+    returns(bool){
+        return (_seller == msg.sender || 
+                nonFungibleContract.isApprovedForAll(_seller, msg.sender) || 
+                nonFungibleContract.getApproved(_tokenId) == msg.sender ||
+                getProxy(_seller) == msg.sender);
+    }
+
+    function _canOperator(address _seller)
+    internal 
+    view
+    returns(bool){
+        return (_seller == msg.sender || 
+                nonFungibleContract.isApprovedForAll(_seller, msg.sender) || 
+                getProxy(_seller) == msg.sender);
+    }
 }

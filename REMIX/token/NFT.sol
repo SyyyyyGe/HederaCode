@@ -179,6 +179,7 @@ contract NFT is ERC721,ERC165SupportedInterface,ERC721Metadata{
     function setApprovalForAll(address _operator, bool _approved)
     override
     external{
+        require(_operator != msg.sender, "setApprovalForAll: _operator != msg.sender");
         ownerToOperators[msg.sender][_operator] = _approved;
         emit ApprovalForAll(msg.sender, _operator, _approved);
     }
