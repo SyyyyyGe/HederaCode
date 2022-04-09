@@ -8,7 +8,7 @@ import "../utils/AddressProxy.sol";
 
 contract NFTProxy is AddressProxy{
     NFTLast nonFungibleContract;
-
+    
     //确保能够操作
     modifier canOperator(uint256 _tokenId){
         address owner = nonFungibleContract.ownerOf(_tokenId);
@@ -80,5 +80,17 @@ contract NFTProxy is AddressProxy{
         return (_seller == msg.sender || 
                 nonFungibleContract.isApprovedForAll(_seller, msg.sender) || 
                 getProxy(_seller) == msg.sender);
+    }
+
+    function _setIdToStatus(uint256 _tokenId, uint256 _status)
+    internal{
+        nonFungibleContract.setidToStatus(_tokenId, _status);
+    }
+
+    function _getIdToStatus(uint256 _tokenId)
+    internal
+    view
+    returns(uint256){
+        return nonFungibleContract.getidToStatus(_tokenId);
     }
 }

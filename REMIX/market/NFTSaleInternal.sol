@@ -85,6 +85,8 @@ contract NFTSaleInternal is NFTProxy{
             _discount.toUint8()
         );
         _addSale(_tokenId, sale);
+        _setIdToStatus(_tokenId, 2);
+        emit SaleCreated(_tokenId, _startingPrice, _endingPrice, _duration, _discount);
     }
 
     //更新直售
@@ -121,6 +123,7 @@ contract NFTSaleInternal is NFTProxy{
     //取消直售
     function _cancelSale(uint256 _tokenId, address _seller)
     internal{
+        _setIdToStatus(_tokenId, 0);
         _removeSale(_tokenId);
         _transferFrom(address(this), _seller, _tokenId);
         emit SaleConcelled(_tokenId);

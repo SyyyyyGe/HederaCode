@@ -40,6 +40,9 @@ contract NFT is ERC721,ERC165SupportedInterface,ERC721Metadata{
     //查看owner有没有授权给operator
     mapping (address => mapping(address => bool)) internal ownerToOperators;
     
+    //记录一个tokenid在拍卖还是在直售  0 => none, 1 => auction, 2 => sale
+    mapping(uint256 => uint8)internal idToStatus;
+
     bytes4 internal constant CONTRACT_RECEIVE_SUCCESS_BYTE = 0x150b7a02;
     //确保授权人操作, 要求满足之一：拥有者， 授权者
     modifier canOperator(uint256 _tokenId){
@@ -174,7 +177,21 @@ contract NFT is ERC721,ERC165SupportedInterface,ERC721Metadata{
         idToApproval[_tokenId] = _approved;
         emit Approval(owner, _approved, _tokenId);
     }
+    function setidToStatus(uint256 _tokenId, uint256 _status)
+    external
+    canTransfer(_tokenId)
+    validNFT(_tokenId){
+        require(_status <= 2 && _status >= 0, "setidToStatus:_status <= 2 && _status >= 0");
+        idToStatus[_tokenId] = uint8(_status);
+    }
 
+    function getidToStatus(uint256 _tokenId)
+    external
+    view
+    validNFT(_tokenId)
+    returns(uint256){
+        return uint256(idToStatus[_tokenId]);
+    }
     //拥有者命名授权者
     function setApprovalForAll(address _operator, bool _approved)
     override
@@ -222,6 +239,7 @@ contract NFT is ERC721,ERC165SupportedInterface,ERC721Metadata{
         _addNFT(_to, _tokenId);
         _afterMint(_to, _tokenId);
         emit Transfer(address(0), _to, _tokenId);
+        idToStatus[_tokenId] = 0;
     }
 
     //设置uri
@@ -241,6 +259,7 @@ contract NFT is ERC721,ERC165SupportedInterface,ERC721Metadata{
         delete(idToUri[_tokenId]);
         _afterBurn(_tokenId);
         emit Transfer(owner, address(0), _tokenId);
+        delete idToStatus[_tokenId];
     }
 
     function _addLike(address _to, uint256 _tokenId)

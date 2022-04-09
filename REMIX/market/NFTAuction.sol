@@ -28,6 +28,13 @@ contract NFTAuction is NFTAuctionInternal, ReentrancyGuard{
         return auctions;
     }
 
+    function showAuctionHistory(uint256 _tokenId)
+    public
+    view
+    virtual
+    returns(AuctionHistory[] memory){
+        return idToAuctionHistory[_tokenId];
+    }
     //得到现在拍卖列表长度
     function getAuctionsLen()
     public
@@ -79,7 +86,7 @@ contract NFTAuction is NFTAuctionInternal, ReentrancyGuard{
         uint256 elapsedTime = block.timestamp - auction.startedAt;
         if(elapsedTime <= auction.duration){
             address seller = auction.seller;
-            require(!_canOperator(seller), "cancelAuction: !_canOperator(seller)");
+            require(_canOperator(seller), "cancelAuction: !_canOperator(seller)");
         }
         _cancelAuction(_tokenId, auction);
     }

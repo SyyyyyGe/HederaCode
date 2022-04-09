@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-
 import "../interface/ERC721Enumerable.sol";
 import "./NFT.sol";
 import "../utils/AddressUtils.sol";
@@ -22,7 +21,6 @@ contract NFTLast is NFT, ERC721Enumerable, Ownable, Pausable{
     //记录一个tokenid在owner的tokens中index是多少
     mapping(uint256 => uint256)internal idToOwnerindex;
 
-    
 
     constructor(string memory name, string memory symbol)NFT(name, symbol){}
     
@@ -195,6 +193,7 @@ contract NFTLast is NFT, ERC721Enumerable, Ownable, Pausable{
         idToIndex[lastToken1] = tokenIndex;
         delete idToIndex[_tokenId]; 
     }
+
 
     function _afterMint(address _to, uint256 _tokenId)
     internal

@@ -75,7 +75,7 @@ contract NFTSale is NFTSaleInternal, ReentrancyGuard{
     public
     virtual{
         Sale memory sale = idToSale[_tokenId];
-        require(!_canOperator(sale.seller), "updateSale: !_canOperator(sale.seller)");
+        require(_canOperator(sale.seller), "updateSale: !_canOperator(sale.seller)");
         require(_discount <= 100, "updateSale:_discount <= 100");
         require(_isOnSelling(sale), "updateSale:_isOnSelling(_tokenId)");
         _updateSale(_tokenId, _startingPrice, _endingPrice, _duration, _discount);
@@ -87,7 +87,7 @@ contract NFTSale is NFTSaleInternal, ReentrancyGuard{
     nonReentrant
     virtual{
         Sale memory sale = idToSale[_tokenId];
-        require(!_canOperator(sale.seller), "updateSale: !_canOperator(sale.seller)");
+        require(_canOperator(sale.seller), "updateSale: !_canOperator(sale.seller)");
         require(_isOnSale(sale), "cancelSale: _isOnSale(_tokenId)");
         address seller = sale.seller;
         _cancelSale(_tokenId, seller);

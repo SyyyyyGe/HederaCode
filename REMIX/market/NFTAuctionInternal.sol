@@ -56,6 +56,15 @@ abstract contract NFTAuctionInternal is NFTProxy{
     //交易历史
     mapping(uint256 => AuctionDetail[])internal idToAuctionDetail;
 
+    struct AuctionHistory{
+        address buyer;
+
+        uint256 buyTime;
+
+        uint256 price;
+    }
+
+    mapping(uint256 => AuctionHistory[])internal idToAuctionHistory;
     /*
         事件
     */
@@ -90,6 +99,7 @@ abstract contract NFTAuctionInternal is NFTProxy{
             block.timestamp.toUint64()
         );
         _addAuction(_tokenId, auction);
+        _setIdToStatus(_tokenId, 1);
          emit AuctionCreated(
             uint256(_tokenId),
             uint256(_nowAmount),
@@ -112,10 +122,12 @@ abstract contract NFTAuctionInternal is NFTProxy{
     internal{
         address _winner = _auction.winner;
         address _seller = _auction.seller;
+        _setIdToStatus(_tokenId, 0);
         _transferFrom(address(this), _winner, _tokenId);
         idToAuctionDetail[_tokenId].push(AuctionDetail(_seller, _winner, idToDeposits[_tokenId][_winner]));
          _sendMoney(_tokenId, _winner, _seller);
         _removeAuction(_tokenId);
+        delete idToAuctionHistory[_tokenId];
         emit AuctionConcelled(_tokenId);
     }
 
@@ -144,6 +156,12 @@ abstract contract NFTAuctionInternal is NFTProxy{
         _updateAuction(_auction, _tokenId, payable(msg.sender), _bidAmount);
         idToDeposits[_tokenId][msg.sender] = _bidAmount;
         if(!isHave)idToDepositsList[_tokenId].push(msg.sender);
+        AuctionHistory memory auctionHistory = AuctionHistory(
+            msg.sender,
+            block.timestamp,
+            _bidAmount
+        );
+        idToAuctionHistory[_tokenId].push(auctionHistory);
     }
 
     //更新拍卖
