@@ -97,8 +97,7 @@ contract NFTLast is NFT, ERC721Enumerable, Ownable, Pausable{
 
     function mint(address _to, uint256 _tokenId, string memory _uri)
     external
-    virtual
-    onlyOwner{
+    virtual{
         _mint(_to, _tokenId);
         _setUri(_tokenId, _uri);
     }    
