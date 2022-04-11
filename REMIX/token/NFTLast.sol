@@ -102,6 +102,19 @@ contract NFTLast is NFT, ERC721Enumerable, Ownable, Pausable{
         _setUri(_tokenId, _uri);
     }    
 
+    function safeMint(address _to, uint256 _tokenId, string memory _uri, bytes memory _data)
+    external
+    virtual{
+        _safeMint(_to, _tokenId, _data);
+        _setUri(_tokenId, _uri);
+    }
+
+    function safeMint(address _to, uint256 _tokenId, string memory _uri)
+    external
+    virtual{
+        _safeMint(_to, _tokenId, "");
+        _setUri(_tokenId, _uri);
+    }
 
     function burn(uint256 _tokenId)
     external

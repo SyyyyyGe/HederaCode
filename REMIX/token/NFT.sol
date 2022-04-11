@@ -242,6 +242,12 @@ contract NFT is ERC721,ERC165SupportedInterface,ERC721Metadata{
         idToStatus[_tokenId] = 0;
     }
 
+    function _safeMint(address _to, uint256 _tokenId, bytes memory _data)
+    internal
+    virtual{
+        _mint(_to, _tokenId);
+        require(_checkOnERC721Received(address(0), _to, _tokenId, _data), "_safeMint:_checkOnERC721Received(address(0), _to, _tokenId, _data)");
+    }
     //设置uri
     function _setUri(uint256 _tokenId, string memory _uri)
     internal {
@@ -296,12 +302,8 @@ contract NFT is ERC721,ERC165SupportedInterface,ERC721Metadata{
         _removeNFT(_tokenId);
         _addNFT(_to, _tokenId);
         _afterTransferFrom(_from, _to, _tokenId, data);
+        _checkOnERC721Received(_from, _to, _tokenId, data);
         emit Transfer(_from, _to, _tokenId);
-        if(_to.isContract()){
-            bytes4 result = ERC721TokenReceiver(_to).onERC721Received(msg.sender, _from, _tokenId, data);
-            require(result == CONTRACT_RECEIVE_SUCCESS_BYTE,
-                "sunyao:_safeTransferFrom contract account cant receive the NFT");
-        }
     }
 
     //添加NFT
@@ -321,6 +323,28 @@ contract NFT is ERC721,ERC165SupportedInterface,ERC721Metadata{
         delete idToApproval[_tokenId];
     }
 
+    function _checkOnERC721Received(
+    address from,
+    address to,
+    uint256 tokenId,
+    bytes memory _data
+    ) private returns (bool) {
+        if (to.isContract()) {
+            try ERC721TokenReceiver(to).onERC721Received(msg.sender, from, tokenId, _data) returns (bytes4 retval) {
+                return retval == ERC721TokenReceiver.onERC721Received.selector;
+            } catch (bytes memory reason) {
+                if (reason.length == 0) {
+                    revert("ERC721: transfer to non ERC721Receiver implementer");
+                } else {
+                    assembly {
+                        revert(add(32, reason), mload(reason))
+                    }
+                }
+            }
+        } else {
+            return true;
+        }
+    }
     //下面函数利用回调机制提高合约灵活性
     //在mint前执行
     function _preMint(address _to, uint256 _tokenId)
